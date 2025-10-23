@@ -135,9 +135,55 @@ app.post('/api/check-user', authenticateToken, async (req, res) => {
   }
 });
 
+// ========================================
+// PING-PONG для поддержания соединения
+// ========================================
+
+// Интервал отправки ping (25 секунд - безопасно для Render)
+const PING_INTERVAL = 25000;
+
+// Таймаут для pong ответа (10 секунд)
+const PONG_TIMEOUT = 10000;
+
+// Периодическая отправка ping всем клиентам
+const pingInterval = setInterval(() => {
+  wss.clients.forEach((ws) => {
+    if (ws.readyState === WebSocket.OPEN) {
+      // Проверяем, получили ли мы pong на предыдущий ping
+      if (ws.isAlive === false) {
+        console.log('Client not responding to ping, terminating connection');
+        return ws.terminate();
+      }
+
+      // Помечаем клиента как "ожидающего pong"
+      ws.isAlive = false;
+      ws.ping();
+      
+      console.log('Ping sent to client');
+    }
+  });
+}, PING_INTERVAL);
+
+// Очистка интервала при остановке сервера
+wss.on('close', () => {
+  clearInterval(pingInterval);
+});
+
+// ========================================
 // WebSocket сигнализация для WebRTC
+// ========================================
+
 wss.on('connection', (ws) => {
   let userPhone = null;
+
+  // Изначально клиент считается живым
+  ws.isAlive = true;
+
+  // Обработка pong ответа от клиента
+  ws.on('pong', () => {
+    ws.isAlive = true;
+    console.log('Pong received from client');
+  });
 
   ws.on('message', (message) => {
     try {
@@ -221,6 +267,11 @@ wss.on('connection', (ws) => {
             }));
           }
           break;
+
+        // Ответ на ping от клиента (если клиент тоже отправляет ping)
+        case 'ping':
+          ws.send(JSON.stringify({ type: 'pong' }));
+          break;
       }
     } catch (error) {
       console.error('WebSocket message error:', error);
@@ -243,4 +294,5 @@ wss.on('connection', (ws) => {
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`WebSocket server ready`);
+  console.log(`Ping-pong keepalive enabled (interval: ${PING_INTERVAL}ms)`);
 });
