@@ -143,6 +143,31 @@ app.get('/healthz', (req, res) => {
   });
 });
 
+app.get('/api/clients', (req, res) => {
+  try {
+    const list = Array.from(clients.keys());
+    res.json({ clients: list });
+  } catch (error) {
+    console.error('Error getting clients list:', error);
+    res.status(500).json({ error: 'Failed to get clients' });
+  }
+});
+
+// Debug: check if a particular phone is online
+app.get('/api/is-online', (req, res) => {
+  try {
+    const phone = req.query.phone;
+    if (!phone) return res.status(400).json({ error: 'phone query required' });
+
+    const ws = clients.get(phone);
+    const online = !!(ws && ws.readyState === WebSocket.OPEN);
+    res.json({ phone, online });
+  } catch (error) {
+    console.error('Error checking online status:', error);
+    res.status(500).json({ error: 'Failed to check status' });
+  }
+});
+
 // ========================================
 // PING-PONG для поддержания соединения
 // ========================================
@@ -167,7 +192,7 @@ const pingInterval = setInterval(() => {
       ws.isAlive = false;
       ws.ping();
       
-      console.log('Ping sent to client');
+      // console.log('Ping sent to client');
     }
   });
 }, PING_INTERVAL);
@@ -190,7 +215,7 @@ wss.on('connection', (ws) => {
   // Обработка pong ответа от клиента
   ws.on('pong', () => {
     ws.isAlive = true;
-    console.log('Pong received from client');
+    // console.log('Pong received from client');
   });
 
   ws.on('message', (message) => {
@@ -304,4 +329,5 @@ server.listen(PORT, () => {
   console.log(`WebSocket server ready`);
   console.log(`Ping-pong keepalive enabled (interval: ${PING_INTERVAL}ms)`);
 });
+
 
