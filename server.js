@@ -135,6 +135,14 @@ app.post('/api/check-user', authenticateToken, async (req, res) => {
   }
 });
 
+app.get('/healthz', (req, res) => {
+  res.status(200).json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
 // ========================================
 // PING-PONG для поддержания соединения
 // ========================================
@@ -296,3 +304,4 @@ server.listen(PORT, () => {
   console.log(`WebSocket server ready`);
   console.log(`Ping-pong keepalive enabled (interval: ${PING_INTERVAL}ms)`);
 });
+
